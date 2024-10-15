@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include "DALIReceiver.h"
 
-#define DALI_RX_PIN 7
+#define DALI_RX_PIN 20
 #define RMT_CHANNEL RMT_CHANNEL_1
 
 DALIReceiver daliReceiver(DALI_RX_PIN, RMT_CHANNEL);
