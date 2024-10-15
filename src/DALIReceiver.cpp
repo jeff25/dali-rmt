@@ -99,22 +99,14 @@ bool DALIReceiver::decodeRMTData(rmt_item32_t *items, uint16_t &command) {
         return false;
     }
 
-    unsigned long startTime = millis();
-    
-    // Decode the received items
     for (int i = 0; i < DALI_RECEIVER_BITS; ++i) {
-        Serial.printf("Bit %d: Duration0: %d, Expected Bit Time: %d\n", i, items[i].duration0, DALI_RECEIVER_BIT_TIME);
-        
         if (items[i].duration0 < DALI_RECEIVER_BIT_TIME) {
             command <<= 1;
-            command |= 1; // 1 bit
+            command |= 0; // logical 0
         } else {
             command <<= 1;
-            command |= 0; // 0 bit
+            command |= 1; // logical 1
         }
     }
-    unsigned long decodeTime = millis() - startTime;
-    Serial.printf("RMT Decode Time: %lu ms\n", decodeTime);
-    
     return true;
 }
