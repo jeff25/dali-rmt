@@ -28,26 +28,44 @@ void configure_rmt() {
     rmt_driver_install(rmt_tx.channel, 10, 0);
 }
 
-// Function to send a single DALI bit (0 or 1)
-void send_dali_bit(bool bit) {
-    rmt_item32_t item;
+// Function to prepare a DALI frame
+void prepare_dali_frame(uint16_t data, int num_bits, rmt_item32_t* items) {
+    int index = 0;
 
-    if (bit) {
-        item.level0 = 0; // Start with LOW
-        item.duration0 = DALI_HALF_BIT_US;  // Half-bit period for LOW
-        item.level1 = 1; // Then HIGH
-        item.duration1 = DALI_HALF_BIT_US;  // Half-bit period for HIGH
-    } else {
-        item.level0 = 1; // Start with HIGH
-        item.duration0 = DALI_HALF_BIT_US;  // Half-bit period for HIGH
-        item.level1 = 0; // Then LOW
-        item.duration1 = DALI_HALF_BIT_US;  // Half-bit period for LOW
+    // Start bit (LOW)
+    items[index].level0 = 0;
+    items[index].duration0 = DALI_HALF_BIT_US;
+    items[index].level1 = 1;
+    items[index].duration1 = DALI_HALF_BIT_US;
+    index++;
+
+    // Data bits, least significant bit first
+    for (int i = 0; i < num_bits; i++) {
+        bool bit = (data >> i) & 0x01;
+        if (bit) {
+            items[index].level0 = 0;
+            items[index].duration0 = DALI_HALF_BIT_US;
+            items[index].level1 = 1;
+            items[index].duration1 = DALI_HALF_BIT_US;
+        } else {
+            items[index].level0 = 1;
+            items[index].duration0 = DALI_HALF_BIT_US;
+            items[index].level1 = 0;
+            items[index].duration1 = DALI_HALF_BIT_US;
+        }
+        index++;
     }
 
-    // Send the bit over RMT
-    rmt_write_items(rmt_tx.channel, &item, 1, false);
-    rmt_wait_tx_done(rmt_tx.channel, pdMS_TO_TICKS(10)); // Ensure the bit is transmitted
-
+    // Stop bits (HIGH)
+    items[index].level0 = 0;
+    items[index].duration0 = DALI_HALF_BIT_US;
+    items[index].level1 = 1;
+    items[index].duration1 = DALI_HALF_BIT_US;
+    index++;
+    items[index].level0 = 0;
+    items[index].duration0 = DALI_HALF_BIT_US;
+    items[index].level1 = 1;
+    items[index].duration1 = DALI_HALF_BIT_US;
 }
 
 // Function to send a complete DALI frame
@@ -57,36 +75,30 @@ void send_dali_frame(uint16_t data, int num_bits) {
         return;
     }
 
-    send_dali_bit(0); // Start bit (LOW)
+    rmt_item32_t items[20]; // Maximum of 20 items (1 start bit + 16 data bits + 2 stop bits)
+    prepare_dali_frame(data, num_bits, items);
 
-    // Send data bits, least significant bit first
-    for (int i = 0; i < num_bits; i++) {
-        bool bit = (data >> i) & 0x01; // Hole den aktuellen Bit
-        send_dali_bit(bit); // Sende den aktuellen Bit
-    }
-
-    send_dali_bit(1); // Stop bit (HIGH)
-    send_dali_bit(1); // Stop bit (HIGH)
-
+    // Send the frame over RMT
+    rmt_write_items(rmt_tx.channel, items, num_bits + 3, false);
+    rmt_wait_tx_done(rmt_tx.channel, pdMS_TO_TICKS(10)); // Ensure the frame is transmitted
 }
 
 void setup() {
     // Initialize serial communication for printing
     Serial.begin(115200);
-      while (!Serial) {
+    while (!Serial) {
         // Wait for serial to be ready
     }
 
-    //pinMode(DALI_TX_GPIO, OUTPUT);  // Setze den Pin in den Ausgabemodus
     // Initialize the RMT for DALI communication
     configure_rmt();
-    // Example: Send an 8-bit DALI command (e.g., 0xA6)
+    // Example: Send an 8-bit DALI command (e.g., 0xFF)
     send_dali_frame(0xFF, 8);
-    // Example: Send a 16-bit DALI command (e.g., 0xA6F0)
+    // Example: Send a 16-bit DALI command (e.g., 0x80FE)
     //send_dali_frame(0x80FE, 16);
 }
 
 void loop() {
     send_dali_frame(0xFF, 8);
-    delay (1000);
+    delay(1000);
 }
