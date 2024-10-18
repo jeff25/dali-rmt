@@ -15,7 +15,7 @@ void configure_rmt() {
     // Initialize RMT transmitter
     rmt_tx.channel = RMT_CHANNEL_0;
     rmt_tx.gpio_num = (gpio_num_t)DALI_TX_GPIO; // Cast pin number to gpio_num_t type
-    rmt_tx.clk_div = 80;                       // 1 MHz clock (80 MHz / 80)
+    rmt_tx.clk_div = 40;                        // 40 MHz / 40 = 1 MHz
     rmt_tx.mem_block_num = 1;                  // Only need one memory block
     rmt_tx.tx_config.loop_en = false;
     rmt_tx.tx_config.carrier_en = false;       // No carrier modulation for DALI
@@ -25,7 +25,7 @@ void configure_rmt() {
 
     // Apply the configuration and install RMT driver
     rmt_config(&rmt_tx);
-    rmt_driver_install(rmt_tx.channel, 0, 0);
+    rmt_driver_install(rmt_tx.channel, 10, 0);
 }
 
 // Function to send a single DALI bit (0 or 1)
@@ -44,12 +44,10 @@ void send_dali_bit(bool bit) {
         item.duration1 = DALI_HALF_BIT_US;  // Half-bit period for LOW
     }
 
-     // Print the bit being sent
-    //Serial.print("Sending bit: ");
-    //Serial.println(bit);
-
     // Send the bit over RMT
-    rmt_write_items(rmt_tx.channel, &item, 1, true);
+    rmt_write_items(rmt_tx.channel, &item, 1, false);
+    rmt_wait_tx_done(rmt_tx.channel, pdMS_TO_TICKS(10)); // Ensure the bit is transmitted
+
 }
 
 // Function to send a complete DALI frame
@@ -59,17 +57,17 @@ void send_dali_frame(uint16_t data, int num_bits) {
         return;
     }
 
-    send_dali_bit(0); // Start bit
+    send_dali_bit(0); // Start bit (LOW)
 
     // Send data bits, least significant bit first
     for (int i = 0; i < num_bits; i++) {
-        bool bit = (data >> i) & 0x01;
-        Serial.print(bit ? '1' : '0'); // Print the bit
-        send_dali_bit(bit);
+        bool bit = (data >> i) & 0x01; // Hole den aktuellen Bit
+        send_dali_bit(bit); // Sende den aktuellen Bit
     }
 
-    send_dali_bit(1); // Stop bits
-    send_dali_bit(1);
+    send_dali_bit(1); // Stop bit (HIGH)
+    send_dali_bit(1); // Stop bit (HIGH)
+
 }
 
 void setup() {
@@ -79,15 +77,16 @@ void setup() {
         // Wait for serial to be ready
     }
 
+    //pinMode(DALI_TX_GPIO, OUTPUT);  // Setze den Pin in den Ausgabemodus
     // Initialize the RMT for DALI communication
     configure_rmt();
     // Example: Send an 8-bit DALI command (e.g., 0xA6)
-    send_dali_frame(0xA6, 8);
-
+    send_dali_frame(0xFF, 8);
     // Example: Send a 16-bit DALI command (e.g., 0xA6F0)
-    send_dali_frame(0xA6F0, 16);
+    //send_dali_frame(0x80FE, 16);
 }
 
 void loop() {
-   
+    send_dali_frame(0xFF, 8);
+    delay (1000);
 }
